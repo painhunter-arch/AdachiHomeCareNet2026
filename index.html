@@ -114,6 +114,7 @@ header.top nav a[aria-current="page"]{background:rgba(255,255,255,.18);font-weig
 header.top .cnt{font-size:11px;background:var(--todo);color:#fff;border-radius:999px;padding:0 6px}
 #confBanner{border-left-color:var(--doing)}
 .conf h2{font-size:30px}.conf .card p{margin:4px 0 0;font-size:17px}.conf .chart div{font-size:17px;margin:3px 0}
+.jdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;border:1px solid rgba(0,0,0,.25)}
 .chg{color:var(--todo);font-size:11px;margin-left:4px}
 @media (max-width:820px){.app{grid-template-columns:1fr}nav.side{display:none}.mail{grid-template-columns:1fr}}
 @media print{nav.side,header.top,.toolbar,.tabs,.btn{display:none!important}.app{display:block}main{overflow:visible}}
@@ -229,6 +230,36 @@ function toast(msg){const t=document.createElement("div");t.setAttribute("role",
  Object.assign(t.style,{position:"fixed",bottom:"18px",right:"18px",background:"var(--brand)",color:"#fff",padding:"8px 14px",borderRadius:"8px",zIndex:9});
  document.body.appendChild(t);setTimeout(()=>t.remove(),2200)}
 
+/* ============ 初期設定（職種の色など・全員で共通） ============ */
+const JOB_DEFAULT={"医師":["#1f5fbf","医"],"歯科医師":["#4fa3d9","歯"],"薬剤師":["#138a5b","薬"],"看護師":["#c0397a","看"],"保健師":["#e07bb5","保"],
+ "理学療法士":["#8a5a00","PT"],"作業療法士":["#b8860b","OT"],"言語聴覚士":["#e0b400","ST"],"歯科衛生士":["#3aa6a6","衛"],"管理栄養士":["#6b8e23","栄"],
+ "ケアマネジャー":["#e0601a","ケ"],"相談支援専門員":["#a0522d","相"],"介護職":["#7b4fc9","介"],"医療ソーシャルワーカー":["#3f4fa8","SW"],
+ "福祉用具専門相談員":["#6b7680","福"],"事務":["#9a9a9a","事"],"その他":["#555555","他"]};
+let PREFS={jobColors:{},jobLabels:{},showJobLabel:true,_ts:""};
+async function loadPrefs(){const p=await metaGet("prefs").catch(()=>null);if(p)PREFS={...PREFS,...p}}
+async function savePrefs(np){np._ts=iso();PREFS=np;await metaPut("prefs",np);if(FOLDER.dir)await FOLDER.writeJSON(null,"prefs.json",np).catch(()=>{})}
+async function pullPrefs(){if(!FOLDER.dir)return;const r=await FOLDER.readJSON(null,"prefs.json").catch(()=>null);if(r&&r.obj&&(r.obj._ts||"")>(PREFS._ts||"")){PREFS={...PREFS,...r.obj};await metaPut("prefs",PREFS)}}
+const jobColor=j=>PREFS.jobColors?.[j]||JOB_DEFAULT[j]?.[0]||"#555555";
+const jobLabel=j=>PREFS.jobLabels?.[j]||JOB_DEFAULT[j]?.[1]||(j||"").slice(0,1);
+function inkOn(hex){const h=hex.replace("#","");const r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;
+ const L=x=>x<=0.03928?x/12.92:((x+0.055)/1.055)**2.4;const lum=0.2126*L(r)+0.7152*L(g)+0.0722*L(b);return lum>0.42?"#1d2a33":"#ffffff"}
+function jobPill(m,text,title,filled=true){const j=m?.job||"その他";const c=jobColor(j);const lab=PREFS.showJobLabel?`<b style="margin-right:4px">${esc(jobLabel(j))}</b>`:"";
+ return filled?`<span class="pill" style="background:${c};color:${inkOn(c)}" title="${esc(title||j)}">${lab}${text}</span>`
+  :`<span class="pill" style="background:transparent;color:${c};border:2px solid ${c}" title="${esc(title||j)}">${lab}${text}</span>`}
+const jobDot=m=>`<span class="jdot" style="background:${jobColor(m?.job||"その他")}" title="${esc(m?.job||"")}"></span>`;
+async function admPrefs(){const cur=JSON.parse(JSON.stringify(PREFS));
+ $("#adm2").innerHTML=`<form id="pfx"><fieldset><legend>職種ごとの色と略号（既読・Todo・足跡・チームの表示に使います）</legend>
+ <p class="small">全員の画面に共通で反映されます。隣り合う職種どうしが見分けやすい色にしてください。色だけに頼らないよう、略号も表示できます。</p>
+ <table class="list"><thead><tr><th>職種</th><th>色</th><th>略号</th><th>表示例（既読）</th><th>表示例（未完了のTodo）</th></tr></thead><tbody>
+ ${JOBS.map(j=>`<tr><td>${esc(j)}</td><td><input type="color" name="c.${esc(j)}" value="${esc(jobColor(j))}" aria-label="${esc(j)}の色"></td><td><input name="l.${esc(j)}" value="${esc(jobLabel(j))}" maxlength="3" style="width:60px" aria-label="${esc(j)}の略号"></td>
+ <td data-prev="${esc(j)}">${jobPill({job:j},"見本 太郎 11/8 15:20")}</td><td data-prev2="${esc(j)}">${jobPill({job:j},"見本 太郎","",false)}</td></tr>`).join("")}</tbody></table>
+ <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" name="showJobLabel" ${cur.showJobLabel?"checked":""}> 名前の前に職種の略号を表示する（色の見分けが難しい人にも区別できるように）</label>
+ <div class="toolbar" style="margin-top:10px"><button class="btn" type="submit">初期設定を保存</button><button class="btn ghost" type="button" id="pfReset">標準の色に戻す</button></div></fieldset></form>`;
+ const f=$("#pfx");const collect=()=>{const d=formData(f);const np={...PREFS,jobColors:{},jobLabels:{},showJobLabel:!!d.showJobLabel};for(const j of JOBS){np.jobColors[j]=d["c."+j];np.jobLabels[j]=(d["l."+j]||"").trim()||JOB_DEFAULT[j]?.[1]||""}return np};
+ f.oninput=()=>{const save=PREFS;PREFS=collect();for(const j of JOBS){f.querySelector(`[data-prev="${CSS.escape(j)}"]`).innerHTML=jobPill({job:j},"見本 太郎 11/8 15:20");f.querySelector(`[data-prev2="${CSS.escape(j)}"]`).innerHTML=jobPill({job:j},"見本 太郎","",false)}PREFS=save};
+ f.onsubmit=async e=>{e.preventDefault();await savePrefs(collect());await audit("perm",{summary:"初期設定（職種の色）を変更"});toast("初期設定を保存しました");render()};
+ $("#pfReset").onclick=async()=>{if(!confirm("標準の色と略号に戻します"))return;await savePrefs({...PREFS,jobColors:{},jobLabels:{},showJobLabel:true});toast("標準に戻しました");render()}}
+
 /* ============ ルーティング ============ */
 let state={group:"none",sortKey:"name",q:""};
 window.addEventListener("hashchange",render);
@@ -288,7 +319,7 @@ function tabs(p,cur){const t=[["profile","プロファイル"],["team","チー�
  <nav class="tabs" aria-label="患者の情報">${t.map(([k,n])=>`<a href="#/p/${p.id}/${k}" ${k===cur?'aria-current="page"':""}>${n}</a>`).join("")}</nav>`}
 async function showFootprints(p){const el=$("#footprints");if(!el)return;const mm=await memberMap();
  const v=(await byPid("views",p.id)).sort((a,b)=>b.at.localeCompare(a.at)).slice(0,8);
- el.innerHTML=v.length?"足跡："+v.map(x=>`${esc(mm[x.memberId]?.name||"不明")}（${esc(mm[x.memberId]?.job||"")}）${fmtTs(x.at)}${x.via?"・"+esc(x.via):""}`).join("　／　"):""}
+ el.innerHTML=v.length?"足跡："+v.map(x=>`${jobDot(mm[x.memberId])}${esc(mm[x.memberId]?.name||"不明")}（${esc(mm[x.memberId]?.job||"")}）${fmtTs(x.at)}${x.via?"・"+esc(x.via):""}`).join("　／　"):""}
 
 /* ============ ログイン・メンバー登録 ============ */
 async function renderLogin(){renderHeader("login");$("#sideList").innerHTML="";
@@ -340,7 +371,7 @@ async function renderTeam(p){const mm=await memberMap();const views=Object.fromE
  const team=p.team||[];const canEdit=t=>ADMIN||t.memberId===ME.id;const inTeam=new Set(team.map(t=>t.memberId));
  const others=Object.values(mm).filter(m=>!inTeam.has(m.id)&&!m.disabled).sort((a,b)=>a.name.localeCompare(b.name,"ja"));
  $("#main").innerHTML=tabs(p,"team")+`<form id="tf"><table class="list"><thead><tr><th>氏名</th><th>職種・所属</th><th>この患者での役割</th><th>担当日</th><th>離脱日</th><th>現況</th><th>最終閲覧</th></tr></thead><tbody>
- ${team.map((t,i)=>{const m=mm[t.memberId]||{name:"（削除されたメンバー）"};const ed=canEdit(t);return `<tr><td><b>${esc(m.name)}</b>${t.memberId===ME.id?'<div class="small">あなた</div>':""}</td><td>${esc(m.job||"")}<div class="small">${esc(m.org||"")}</div></td>
+ ${team.map((t,i)=>{const m=mm[t.memberId]||{name:"（削除されたメンバー）"};const ed=canEdit(t);return `<tr><td>${jobDot(m)}<b>${esc(m.name)}</b>${t.memberId===ME.id?'<div class="small">あなた</div>':""}</td><td>${esc(m.job||"")}<div class="small">${esc(m.org||"")}</div></td>
  <td>${ed?`<input name="t${i}.role" value="${esc(t.role||"")}">`:esc(t.role)}</td><td>${ed?`<input type="date" name="t${i}.start" value="${esc(t.start||"")}">`:esc(t.start)}</td>
  <td>${ed?`<input type="date" name="t${i}.end" value="${esc(t.end||"")}">`:esc(t.end)}</td>
  <td>${ed?`<select name="t${i}.status">${TEAMST.map(s=>`<option ${s===t.status?"selected":""}>${s}</option>`).join("")}</select>`:`<span class="pill ${t.status==="終了"?"ms-未設定":"st-対応中"}">${esc(t.status)}</span>`}</td>
@@ -367,7 +398,7 @@ function todoRows(list,mm,pm,showPatient){if(!list.length)return '<p class="empt
  return `<table class="list"><thead><tr>${showPatient?"<th>患者</th>":""}<th>やること</th><th>依頼者</th><th>あて先と進み具合</th><th>期限</th><th>自分</th></tr></thead><tbody>${list.map(t=>{const mine=t.assignees.find(a=>a.memberId===ME.id);const over=t.due&&t.due<today()&&mine&&mine.status!=="完了";
   return `<tr>${showPatient?`<td><a href="#/p/${t.patientId}/todos">${esc(pm[t.patientId]?.name||"")}</a></td>`:""}<td><b>${esc(t.title)}</b>${t.noteId?`<div class="small"><a href="#/p/${t.patientId}/notes/${t.noteId}">元の連絡を開く</a></div>`:""}</td>
   <td>${esc(mm[t.from]?.name||"")}<div class="small">${esc(fmtTs(t.created))}</div></td>
-  <td>${t.toAll?'<span class="small">チーム全員　</span>':""}${t.assignees.map(a=>`<span class="pill ${a.status==="完了"?"st-完了":"st-未対応"}" title="${esc(a.doneAt?fmtTs(a.doneAt):"")}">${esc(mm[a.memberId]?.name||"")}</span>`).join(" ")}</td>
+  <td>${t.toAll?'<span class="small">チーム全員　</span>':""}${t.assignees.map(a=>jobPill(mm[a.memberId],(a.status==="完了"?"✓ ":"")+esc(mm[a.memberId]?.name||""),a.status==="完了"?`完了 ${fmtTs(a.doneAt)}`:"未完了",a.status==="完了")).join(" ")}</td>
   <td class="${over?"flag":""}">${esc(t.due||"")}</td>
   <td>${mine?`<button class="btn sm ${mine.status==="完了"?"ghost":""}" type="button" data-tdone="${t.id}">${mine.status==="完了"?"未完了に戻す":"完了にする"}</button>`:""}</td></tr>`}).join("")}</tbody></table>`}
 function bindTodoButtons(){document.querySelectorAll("[data-tdone]").forEach(b=>b.onclick=async()=>{const t=await get("todos",b.dataset.tdone);const a=t.assignees.find(x=>x.memberId===ME.id);
@@ -608,8 +639,8 @@ function noteView(p,n,files,rm,mm,todos){
  <dt>指示者</dt><dd>${esc(n.from)}</dd><dt>指示受け</dt><dd>${esc(n.to)}</dd><dt>対応者</dt><dd>${esc(n.handler)}</dd>
  <dt>対応完了日</dt><dd>${esc(n.doneDate)}</dd><dt>備考</dt><dd>${esc(n.remarks)}</dd>
  ${fl.length?`<dt>添付</dt><dd>${fl.map(f=>`<a href="#" data-open="${f.id}">${esc(f.name)}</a>`).join("<br>")}</dd>`:""}
- <dt>既読 ${reads.length}/${team.length}</dt><dd>${reads.sort((a,b)=>a.at.localeCompare(b.at)).map(r=>`<span class="pill st-完了" title="${esc(fmtTs(r.at))}">${esc(mm[r.memberId]?.name||"")} ${esc(fmtTs(r.at))}</span>`).join(" ")}
-  ${unread.length?`<div class="small" style="margin-top:4px">未読：${unread.map(t=>esc(mm[t.memberId]?.name||"")).join("、")}</div>`:""}</dd>
+ <dt>既読 ${reads.length}/${team.length}</dt><dd>${reads.sort((a,b)=>a.at.localeCompare(b.at)).map(r=>jobPill(mm[r.memberId],`${esc(mm[r.memberId]?.name||"")} ${esc(fmtTs(r.at))}`,`${mm[r.memberId]?.job||""}　既読 ${fmtTs(r.at)}`)).join(" ")}
+  ${unread.length?`<div class="small" style="margin-top:4px">未読：${unread.map(t=>jobPill(mm[t.memberId],esc(mm[t.memberId]?.name||""),"未読",false)).join(" ")}</div>`:""}</dd>
  <dt>作成</dt><dd class="small">${esc(mm[n.createdBy]?.name||"")} ${esc(fmtTs(n.createdAt))}${n.editedBy?`　最終編集 ${esc(mm[n.editedBy]?.name||"")} ${esc(fmtTs(n._ts))}`:""}</dd></dl>
  <div class="body">${esc(n.body)}</div>
  ${nt.length?`<h4 style="margin:14px 0 6px">この連絡から出たTodo</h4>${todoRows(nt,mm,{},false)}`:""}
@@ -852,7 +883,7 @@ const FOLDER={dir:null,name:"",loaded:{},
  supported:()=>"showDirectoryPicker" in window,
  async sub(name){let d=this.dir;for(const part of name.split("/"))d=await d.getDirectoryHandle(part,{create:true});return d},
  async writeJSON(dirName,file,obj){const d=dirName?await this.sub(dirName):this.dir;const fh=await d.getFileHandle(file,{create:true});const w=await fh.createWritable();await w.write(JSON.stringify(obj,null,1));await w.close()},
- async readJSON(dirName,file){try{const d=await this.sub(dirName);const fh=await d.getFileHandle(file);const f=await fh.getFile();return {obj:JSON.parse(await f.text()),mtime:f.lastModified}}catch(e){if(e.name==="NotFoundError")return null;throw e}},
+ async readJSON(dirName,file){try{const d=dirName?await this.sub(dirName):this.dir;const fh=await d.getFileHandle(file);const f=await fh.getFile();return {obj:JSON.parse(await f.text()),mtime:f.lastModified}}catch(e){if(e.name==="NotFoundError")return null;throw e}},
  async writeAttachment(rec){const safe=rec.name.replace(/[\\/:*?"<>|]/g,"_");const d=await (await this.sub("attachments")).getDirectoryHandle(rec.patientId,{create:true});
   const fname=rec.id+"__"+safe;const fh=await d.getFileHandle(fname,{create:true});const w=await fh.createWritable();await w.write(rec.blob);await w.close();rec.path=`attachments/${rec.patientId}/${fname}`},
  async readPath(path){try{let d=this.dir;const parts=path.split("/");for(const x of parts.slice(0,-1))d=await d.getDirectoryHandle(x);const f=await (await d.getFileHandle(parts.at(-1))).getFile();return await f.arrayBuffer()}catch(e){return null}},
@@ -883,7 +914,7 @@ async function flushSync(){const ids=[...syncQ];syncQ.clear();
  setStatus()}
 async function pullGlobal(dir,store){const d=await FOLDER.sub(dir);for await (const [name,h] of d.entries()){if(h.kind!=="file"||!name.endsWith(".json"))continue;
   try{const r=JSON.parse(await (await h.getFile()).text());const cur=await get(store,r.id);if(!cur||(r._ts||"")>=(cur._ts||""))await rawPut(store,r)}catch(e){console.warn(name,e)}}}
-async function pullAll(){if(!FOLDER.dir)return;let n=0;await pullGlobal("members","members");await pullGlobal("conferences","confs");if(ME){const m=await get("members",ME.id);if(m)ME=m}const d=await FOLDER.sub("patients");
+async function pullAll(){if(!FOLDER.dir)return;await pullPrefs();let n=0;await pullGlobal("members","members");await pullGlobal("conferences","confs");if(ME){const m=await get("members",ME.id);if(m)ME=m}const d=await FOLDER.sub("patients");
  for await (const [name,h] of d.entries()){if(h.kind!=="file"||!name.endsWith(".json"))continue;const pid=name.slice(0,-5);
   try{const remote=JSON.parse(await (await h.getFile()).text());const local=await localBundle(pid);
    const m=local.patient?mergeBundles(local,remote):remote;await applyBundle(pid,m);FOLDER.loaded[pid]=remote.savedAt||"";n++}catch(e){console.warn(name,e)}}
@@ -943,11 +974,11 @@ async function unlockAdmin(){if(!ME?.isAdmin){alert("管理の権限がありま
 async function renderAdmin(tab){
  if(!ADMIN){$("#main").innerHTML=`<h2 style="margin-top:0">管理</h2><p>管理画面は、ログインとは別の管理者パスワードで開きます。15分操作がないと自動で閉じます。</p><button class="btn" id="unl" type="button">管理画面を開く</button>`;
   $("#unl").onclick=async()=>{if(await unlockAdmin())render()};return}
- tab=tab||"members";const T=[["members","メンバーと権限"],["patients","患者とチーム"],["logs","操作ログ"],["data","データ（保存・取込）"]];
+ tab=tab||"members";const T=[["prefs","初期設定"],["members","メンバーと権限"],["patients","患者とチーム"],["logs","操作ログ"],["data","データ（保存・取込）"]];
  $("#main").innerHTML=`<div class="phead"><h2>管理</h2><span class="meta">管理画面を開いています（15分操作がないと閉じます）</span><button class="btn ghost sm" id="lock" type="button">管理画面を閉じる</button></div>
  <nav class="tabs">${T.map(([k,n])=>`<a href="#/admin/${k}" ${k===tab?'aria-current="page"':""}>${n}</a>`).join("")}</nav><div id="adm2"></div>`;
  $("#lock").onclick=()=>{lockAdmin();location.hash="#/patients"};
- if(tab==="members")return admMembers();if(tab==="patients")return admPatients();if(tab==="logs")return admLogs();return admData()}
+ if(tab==="prefs")return admPrefs();if(tab==="members")return admMembers();if(tab==="patients")return admPatients();if(tab==="logs")return admLogs();return admData()}
 async function admMembers(edit){const ms=(await all("members")).sort((a,b)=>a.name.localeCompare(b.name,"ja"));const ps=await all("patients");
  const sel=location.hash.split("/")[3];const m=sel?ms.find(x=>x.id===sel):null;
  $("#adm2").innerHTML=`<div class="mail"><div class="mlist">${ms.map(x=>`<a class="item" href="#/admin/members/${x.id}" aria-current="${x.id===sel}"><div class="s">${esc(x.name)}${x.disabled?'（利用停止）':""}</div><div class="w">${esc(x.job||"")}　${esc(x.org||"")}</div>
@@ -1167,7 +1198,7 @@ function bindExtTeam(p){document.querySelectorAll("[data-xadd]").forEach(b=>b.on
 
 
 /* ============ 起動 ============ */
-openDB().then(async()=>{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();await restoreFolder();await loadSession();render()}).catch(e=>{$("#main").innerHTML=`<p class="notice">このブラウザではデータを保存できません（${esc(e.message)}）。プライベートブラウズを解除してください。</p>`});
+openDB().then(async()=>{await loadPrefs();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();await restoreFolder();await loadSession();render()}).catch(e=>{$("#main").innerHTML=`<p class="notice">このブラウザではデータを保存できません（${esc(e.message)}）。プライベートブラウズを解除してください。</p>`});
 </script>
 </body>
 </html>
