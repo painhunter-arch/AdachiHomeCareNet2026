@@ -1,0 +1,16 @@
+# 患者データ・書き出したファイルはリポジトリに入れない
+*.json
+*.rtc
+*.csv
+*.pdf
+*.jpg
+*.jpeg
+*.png
+*.heic
+data/
+patients/
+attachments/
+members/
+conferences/
+logs/
+audit/
