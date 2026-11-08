@@ -2,8 +2,15 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; object-src blob:; frame-src blob:; connect-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#18414c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="健やかNet">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; object-src blob:; frame-src blob:; connect-src https://graph.microsoft.com https://login.microsoftonline.com https://*.sharepoint.com https://*.sharepoint-df.com https://*.svc.ms https://*.1drv.com https://*.files.1drv.com">
 <title>Adachi健やかNet</title>
 <style>
 :root{
@@ -116,7 +123,39 @@ header.top .cnt{font-size:11px;background:var(--todo);color:#fff;border-radius:9
 .conf h2{font-size:30px}.conf .card p{margin:4px 0 0;font-size:17px}.conf .chart div{font-size:17px;margin:3px 0}
 .jdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;border:1px solid rgba(0,0,0,.25)}
 .chg{color:var(--todo);font-size:11px;margin-left:4px}
-@media (max-width:820px){.app{grid-template-columns:1fr}nav.side{display:none}.mail{grid-template-columns:1fr}}
+.mback{display:none}
+@media (max-width:820px){
+ .app{grid-template-columns:1fr;height:auto;min-height:100vh}
+ nav.side{display:none}
+ header.top{padding:8px max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));gap:6px}
+ header.top h1{font-size:16px;width:100%}
+ .app>main,#mainwrap,#main{min-width:0;max-width:100vw}
+ header.top{max-width:100vw}
+ header.top nav{flex:1 1 100%;min-width:0;max-width:100%;width:100%;flex-wrap:nowrap!important;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;scrollbar-width:none}
+ header.top nav a{padding:8px 12px;white-space:nowrap;flex:none}
+ header.top button{padding:8px 10px;min-height:40px}
+ #who{width:100%}#storeStatus{width:100%;font-size:11px}
+ .notice{font-size:12px}
+ #main{padding:14px 12px calc(24px + env(safe-area-inset-bottom))!important}
+ #confBanner,#admWarn{margin:10px 12px 0!important}
+ .mail{grid-template-columns:1fr}
+ .mail.open .mlist{display:none}
+ .mail.open .mback{display:inline-block;margin-bottom:8px}
+ .mlist,.mdetail{max-height:none}
+ table.list{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ table.list th,table.list td{min-width:6.5em}
+ table.list th:first-child,table.list td:first-child{min-width:7em}
+ .tabs{overflow-x:auto;flex-wrap:nowrap!important;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+ .tabs a{white-space:nowrap!important;flex:none;padding:10px 12px}
+ .grid2{grid-template-columns:1fr}
+ .charts{grid-template-columns:1fr}
+ .bar{grid-template-columns:110px 1fr 56px}
+ dl.kv{grid-template-columns:90px 1fr}
+ .btn{min-height:42px}
+ input,select,textarea{font-size:16px!important}
+ .phead h2{font-size:20px}
+ .conf h2{font-size:22px}
+}
 @media print{nav.side,header.top,.toolbar,.tabs,.btn{display:none!important}.app{display:block}main{overflow:visible}}
 </style>
 </head>
@@ -141,6 +180,7 @@ header.top .cnt{font-size:11px;background:var(--todo);color:#fff;border-radius:9
   <main id="mainwrap" style="overflow:auto;padding:0"><div id="confBanner" class="notice" hidden style="margin:12px 22px 0"></div><div id="admWarn" class="notice" hidden style="margin:12px 22px 0"></div><div id="main" tabindex="-1" style="padding:18px 22px"></div></main>
 </div>
 
+<script src="config.js"></script>
 <script>
 "use strict";
 /* ============ 定数 ============ */
@@ -323,6 +363,7 @@ async function showFootprints(p){const el=$("#footprints");if(!el)return;const m
 
 /* ============ ログイン・メンバー登録 ============ */
 async function renderLogin(){renderHeader("login");$("#sideList").innerHTML="";
+ if(!FOLDER.dir&&HOSTED())return renderHostedSignin();
  if(!FOLDER.dir){const saved=await metaGet("folder").catch(()=>null);
   $("#main").innerHTML=`<h2 style="margin-top:0">Adachi健やかNet：データの保存先に接続</h2>${NOTICE}
   ${FOLDER.supported()?`<p>このシステムのデータは、管理者が用意した <b>OneDrive または Googleドライブの共有フォルダ</b> にあります。パソコンに同期されたそのフォルダを選んでください（初回のみ。次回からは「再接続」を押すだけです）。</p>
@@ -490,7 +531,7 @@ async function confShow(c,i,mm){const ids=c.patientIds||[];if(!ids.length){$("#m
  ${ms.length?`<div class="chart"><h3>医療材料の注意</h3>${ms.map(x=>`<div>${esc(x.m.name)}　<span class="pill ms-${x.r.s}">${x.r.s}</span> <span class="small">残り${x.r.days??"—"}日</span></div>`).join("")}</div>`:""}</div>`}
 
 /* ============ 患者一覧 ============ */
-const NOTICE=`<div class="notice"><b>個人情報の取り扱い</b>：閲覧の制限（担当登録・ログイン）は利用者どうしの取り決めを画面で支えるもので、共有フォルダのファイルそのものは、フォルダを共有した人なら読めます。データはすべて、OneDriveまたはGoogleドライブの共有フォルダ（保存先フォルダ）にファイルとして保存します。Gitにはプログラムだけを置きます。ブラウザに残るのは作業用の一時的な写しで、ログアウトすると消去します。共有フォルダの共有相手は、所属機関の組織アカウントの、担当するメンバーだけに限定してください。</div>`;
+const NOTICE=`<div class="notice"><b>個人情報の取り扱い</b>：閲覧の制限（担当登録・ログイン）は利用者どうしの取り決めを画面で支えるもので、共有フォルダのファイルそのものは、フォルダを共有した人なら読めます。データはすべて、管理者が設定したOneDriveの専用フォルダ（保存先）にファイルとして保存します。Gitにはプログラムだけを置きます。ブラウザに残るのは作業用の一時的な写しで、ログアウトすると消去します。共有フォルダの共有相手は、所属機関の組織アカウントの、担当するメンバーだけに限定してください。</div>`;
 function gkey(p,g){const w=(n,c)=>n?`${n}${c?`（${c}）`:""}`:"";
  const v={doctor:w(p.doctor?.name,p.doctor?.clinic),homeDoctor:w(p.homeDoctor?.name,p.homeDoctor?.clinic),pharmacy:w(p.pharmacy?.name,p.pharmacy?.pharmacist),
   nursing:p.nursing?.name,cm:w(p.cm?.name,p.cm?.office),careLevel:p.careLevel,residence:w(p.residence?.type,p.residence?.facility)}[g];return v||"（未設定）"}
@@ -621,7 +662,7 @@ async function renderNotes(p,cur){
  else right='<p class="empty">左の一覧から連絡を選ぶか、「新しい連絡」を作成してください。</p>';
  $("#main").innerHTML=tabs(p,"notes")+`<div class="toolbar"><a class="btn" href="#/p/${p.id}/notes/new">新しい連絡</a>
   <span class="small">未完了 ${notes.filter(x=>x.status!=="完了").length}件　全 ${notes.length}件　未読 ${notes.filter(x=>!(rm[x.id]||[]).some(r=>r.memberId===ME.id)).length}件</span></div>
-  <div class="mail"><div class="mlist" aria-label="連絡の一覧">${mailList(notes,null,cur,x=>`#/p/${p.id}/notes/${x.id}`,rm)}</div><div class="mdetail">${right}</div></div>`;
+  <div class="mail${cur?" open":""}"><div class="mlist" aria-label="連絡の一覧">${mailList(notes,null,cur,x=>`#/p/${p.id}/notes/${x.id}`,rm)}</div><div class="mdetail"><a class="mback" href="#/p/${p.id}/notes">← 連絡の一覧に戻る</a>${right}</div></div>`;
  await showFootprints(p);bindNoteForm(p,n,files);bindTodoButtons();
  const ed=$("#editNote");if(ed)ed.onclick=()=>{location.hash=`#/p/${p.id}/notes/${n.id}/edit`};
  const dn=$("#delNote");if(dn)dn.onclick=async()=>{if(!confirm("この連絡を削除します。"))return;await del("notes",n.id);location.hash=`#/p/${p.id}/notes`};
@@ -677,7 +718,7 @@ async function renderInbox(cur){
  const n=list.find(x=>x.id===cur);if(n){await markRead(n);(rm[n.id]=rm[n.id]||[]).push({memberId:ME.id,at:iso()})}
  const files=n?await byPid("files",n.patientId):[];const mm=await memberMap();const todos=n?await byPid("todos",n.patientId):[];
  $("#main").innerHTML=`<h2 style="margin-top:0">連絡帳（担当患者すべて）</h2><div class="toolbar"><label>表示 <select id="ifl"><option value="unread" ${f==="unread"?"selected":""}>未読のみ</option><option value="open" ${f==="open"?"selected":""}>未完了のみ</option><option value="all" ${f==="all"?"selected":""}>すべて</option></select></label></div>
- <div class="mail"><div class="mlist">${mailList(list,pm,cur,x=>`#/inbox/${x.id}`,rm)}</div><div class="mdetail">${n?`<p class="small"><a href="#/p/${n.patientId}/notes/${n.id}">${esc(pm[n.patientId]?.name)} 様の連絡帳で開く</a></p>`+noteView(pm[n.patientId],n,files,rm,mm,todos):'<p class="empty">連絡を選んでください</p>'}</div></div>`;
+ <div class="mail${cur?" open":""}"><div class="mlist">${mailList(list,pm,cur,x=>`#/inbox/${x.id}`,rm)}</div><div class="mdetail"><a class="mback" href="#/inbox">← 一覧に戻る</a>${n?`<p class="small"><a href="#/p/${n.patientId}/notes/${n.id}">${esc(pm[n.patientId]?.name)} 様の連絡帳で開く</a></p>`+noteView(pm[n.patientId],n,files,rm,mm,todos):'<p class="empty">連絡を選んでください</p>'}</div></div>`;
  $("#ifl").onchange=e=>{state.inboxFilter=e.target.value;renderInbox()};bindTodoButtons();
  if(n){const p=pm[n.patientId];const ed=$("#editNote");if(ed)ed.onclick=()=>location.hash=`#/p/${p.id}/notes/${n.id}/edit`;
   const dd=$("#doneNote");if(dd)dd.onclick=async()=>{n.status="完了";n.doneDate=n.doneDate||today();await put("notes",n);render()};
@@ -816,8 +857,8 @@ async function renderFiles(p){
  document.querySelectorAll("[data-fdel]").forEach(b=>b.onclick=async()=>{if(confirm("この資料を削除します。")){await del("files",b.dataset.fdel);render()}});
  document.querySelectorAll("[data-fnote]").forEach(i=>i.onchange=async()=>{const f=await get("files",i.dataset.fnote);f.note=i.value;await put("files",f);toast("説明を保存しました")});
 }
-document.addEventListener("click",async e=>{const id=e.target.dataset?.open;if(!id)return;e.preventDefault();const f=await get("files",id);if(!f)return;
- const bl=await getBlob(f);if(!bl){toast("資料ファイルが見つかりません。保存先フォルダを確認してください");return}const u=URL.createObjectURL(bl);window.open(u,"_blank","noopener");setTimeout(()=>URL.revokeObjectURL(u),60000)});
+document.addEventListener("click",async e=>{const id=e.target.dataset?.open;if(!id)return;e.preventDefault();const w=window.open("","_blank");const f=await get("files",id);if(!f){w&&w.close();return}
+ const bl=await getBlob(f);if(!bl){w&&w.close();toast("資料ファイルが見つかりません。保存先を確認してください");return}const u=URL.createObjectURL(bl);if(w)w.location.href=u;else location.href=u;setTimeout(()=>URL.revokeObjectURL(u),120000)});
 
 /* ============ 書き出し・読み込み（任意で暗号化） ============ */
 const b64=buf=>{let s="";const b=new Uint8Array(buf);for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s)};
@@ -919,7 +960,7 @@ async function pullAll(){if(!FOLDER.dir)return;await pullPrefs();let n=0;await p
   try{const remote=JSON.parse(await (await h.getFile()).text());const local=await localBundle(pid);
    const m=local.patient?mergeBundles(local,remote):remote;await applyBundle(pid,m);FOLDER.loaded[pid]=remote.savedAt||"";n++}catch(e){console.warn(name,e)}}
  setStatus(`フォルダから${n}名分を読み込みました`);render()}
-async function connectFolder(handle){FOLDER.dir=handle;FOLDER.name=handle.name;await metaPut("folder",handle);
+async function connectFolder(handle){FOLDER.dir=handle;FOLDER.name=handle.name;if(!handle.isGraph)await metaPut("folder",handle);
  await FOLDER.writeJSON(null,"renkei-techo.json",{app:"renkei-techo",v:1,note:"在宅連携 連絡帳のデータフォルダ"}).catch(()=>{});
  // 既存のローカルデータも書き出す
  for(const p of await all("patients"))scheduleSync(p.id);
@@ -927,7 +968,7 @@ async function connectFolder(handle){FOLDER.dir=handle;FOLDER.name=handle.name;a
  for(const c of await all("confs"))await FOLDER.saveGlobal("conferences",c);
  for(const f of await all("files"))if(f.blob&&!f.path){await FOLDER.writeAttachment(f);await rawPut("files",f)}
  await pullAll();$("#btnPull").hidden=false;setStatus()}
-function setStatus(msg){const el=$("#storeStatus");el.textContent=FOLDER.dir?`保存先：${FOLDER.name}（共有フォルダ）`:"保存先：未接続";if(msg)toast(msg)}
+function setStatus(msg){const el=$("#storeStatus");el.textContent=FOLDER.dir?(FOLDER.dir.isGraph?`保存先：${FOLDER.name}（OneDrive・固定）${msMe()?"／"+(msMe().displayName||msMe().userPrincipalName):""}`:`保存先：${FOLDER.name}（共有フォルダ）`):"保存先：未接続";if(msg)toast(msg)}
 $("#btnFolder").onclick=async()=>{
  if(!FOLDER.supported()){alert("このブラウザはフォルダへの保存に対応していません。パソコンのChromeかEdgeで開いてください。それ以外では「書き出す」「読み込む」で保存してください。");return}
  const saved=await metaGet("folder");
@@ -938,7 +979,8 @@ $("#btnPull").onclick=()=>pullAll();
 document.addEventListener("input",e=>{if(e.target.closest("#main"))window._dirty=true});
 window.addEventListener("focus",()=>{if(FOLDER.dir&&!window._dirty)pullAll().catch(()=>{})});
 setInterval(()=>{if(FOLDER.dir&&!window._dirty&&document.visibilityState==="visible")pullAll().catch(()=>{})},120000);
-async function restoreFolder(){const saved=await metaGet("folder").catch(()=>null);
+async function restoreFolder(){if(HOSTED()){$("#btnFolder").hidden=true;await hostedStart();setStatus();return}
+const saved=await metaGet("folder").catch(()=>null);
  let perm="denied";try{perm=saved&&saved.queryPermission?await saved.queryPermission({mode:"readwrite"}):(saved?"granted":"denied")}catch(e){}
  if(saved&&perm==="granted"){FOLDER.dir=saved;FOLDER.name=saved.name;$("#btnPull").hidden=false;await pullAll()}
  else if(saved){$("#btnFolder").textContent="保存先に再接続";}
@@ -981,9 +1023,9 @@ async function renderAdmin(tab){
  if(tab==="prefs")return admPrefs();if(tab==="members")return admMembers();if(tab==="patients")return admPatients();if(tab==="logs")return admLogs();return admData()}
 async function admMembers(edit){const ms=(await all("members")).sort((a,b)=>a.name.localeCompare(b.name,"ja"));const ps=await all("patients");
  const sel=location.hash.split("/")[3];const m=sel?ms.find(x=>x.id===sel):null;
- $("#adm2").innerHTML=`<div class="mail"><div class="mlist">${ms.map(x=>`<a class="item" href="#/admin/members/${x.id}" aria-current="${x.id===sel}"><div class="s">${esc(x.name)}${x.disabled?'（利用停止）':""}</div><div class="w">${esc(x.job||"")}　${esc(x.org||"")}</div>
+ $("#adm2").innerHTML=`<div class="mail${sel?" open":""}"><div class="mlist">${ms.map(x=>`<a class="item" href="#/admin/members/${x.id}" aria-current="${x.id===sel}"><div class="s">${esc(x.name)}${x.disabled?'（利用停止）':""}</div><div class="w">${esc(x.job||"")}　${esc(x.org||"")}</div>
  <div class="t"><span>${x.isAdmin?'<span class="pill st-対応中">管理</span> ':""}${x.isConfAdmin?'<span class="pill st-完了">カンファ</span>':""}</span><span>担当 ${ps.filter(p=>(p.team||[]).some(t=>t.memberId===x.id&&t.status!=="終了")).length}名</span></div></a>`).join("")}</div>
- <div class="mdetail">${m?`<form id="mf2"><h3 style="margin-top:0">${esc(m.name)} さんのプロファイルと権限</h3><div class="grid2">
+ <div class="mdetail"><a class="mback" href="#/admin/members">← メンバー一覧に戻る</a>${m?`<form id="mf2"><h3 style="margin-top:0">${esc(m.name)} さんのプロファイルと権限</h3><div class="grid2">
  <label class="f"><span>氏名</span><input name="name" value="${esc(m.name)}" required></label><label class="f"><span>職種</span><select name="job">${JOBS.map(j=>`<option ${j===m.job?"selected":""}>${j}</option>`).join("")}</select></label>
  <label class="f"><span>所属</span><input name="org" value="${esc(m.org||"")}"></label><label class="f"><span>連絡先</span><input name="phone" value="${esc(m.phone||"")}"></label></div>
  <fieldset style="margin-top:12px"><legend>権限</legend><div class="signs">
@@ -1196,6 +1238,67 @@ function extTeamSection(p,mm){const t=p.ext?.team||[];if(!t.length)return"";cons
 function bindExtTeam(p){document.querySelectorAll("[data-xadd]").forEach(b=>b.onclick=async()=>{const np=await get("patients",p.id);
  np.team=[...(np.team||[]),{memberId:b.dataset.xadd,role:b.dataset.role,start:today(),end:"",status:"介入中",addedBy:ME.id,addedAt:iso(),source:"FHIR"}];await put("patients",np);toast("チームに加えました");render()})}
 
+
+/* ============ ホスト固定の保存先（OneDrive／SharePoint を Microsoft Graph で直接読み書き） ============ */
+const HOST=Object.assign({storage:"local",tenantId:"",clientId:"",folderShareUrl:"",redirectUri:"",scopes:["Files.ReadWrite.All","offline_access","openid","profile"],graphBase:"https://graph.microsoft.com/v1.0",authBase:"https://login.microsoftonline.com"},window.AHCN_CONFIG||{});
+const HOSTED=()=>HOST.storage==="onedrive";
+const hostReady=()=>HOSTED()&&HOST.tenantId&&HOST.clientId&&HOST.folderShareUrl;
+const redirectUri=()=>HOST.redirectUri||(location.origin+location.pathname);
+const b64u=buf=>btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rnd=n=>b64u(crypto.getRandomValues(new Uint8Array(n)));
+const TOK={get(){try{return JSON.parse(sessionStorage.getItem("ahcn-tok")||"null")}catch(e){return null}},set(t){sessionStorage.setItem("ahcn-tok",JSON.stringify(t))},clear(){sessionStorage.removeItem("ahcn-tok")}};
+async function msSignIn(){const ver=rnd(48);const ch=b64u(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(ver)));const st=rnd(16);
+ sessionStorage.setItem("ahcn-pkce",JSON.stringify({ver,st,hash:location.hash}));
+ const q=new URLSearchParams({client_id:HOST.clientId,response_type:"code",redirect_uri:redirectUri(),response_mode:"query",scope:HOST.scopes.join(" "),state:st,code_challenge:ch,code_challenge_method:"S256",prompt:"select_account"});
+ location.assign(`${HOST.authBase}/${HOST.tenantId}/oauth2/v2.0/authorize?${q}`)}
+async function tokenReq(params){const r=await fetch(`${HOST.authBase}/${HOST.tenantId}/oauth2/v2.0/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:HOST.clientId,scope:HOST.scopes.join(" "),...params})});
+ const j=await r.json();if(!r.ok)throw new Error(j.error_description||j.error||("token "+r.status));TOK.set({at:j.access_token,rt:j.refresh_token||TOK.get()?.rt||"",exp:Date.now()+(j.expires_in-120)*1000});return j}
+async function msHandleRedirect(){const u=new URL(location.href);const code=u.searchParams.get("code"),err=u.searchParams.get("error");if(!code&&!err)return false;
+ const pk=JSON.parse(sessionStorage.getItem("ahcn-pkce")||"null");sessionStorage.removeItem("ahcn-pkce");
+ history.replaceState(null,"",location.pathname+(pk?.hash||"#/login"));
+ if(err){alert("サインインできませんでした："+(u.searchParams.get("error_description")||err));return false}
+ if(!pk||pk.st!==u.searchParams.get("state")){alert("サインインの確認に失敗しました。もう一度サインインしてください。");return false}
+ await tokenReq({grant_type:"authorization_code",code,redirect_uri:redirectUri(),code_verifier:pk.ver});return true}
+async function msToken(){const t=TOK.get();if(!t)return null;if(Date.now()<t.exp)return t.at;if(!t.rt)return null;try{await tokenReq({grant_type:"refresh_token",refresh_token:t.rt});return TOK.get().at}catch(e){TOK.clear();return null}}
+function msSignOut(){TOK.clear();FOLDER.dir=null;location.assign(`${HOST.authBase}/${HOST.tenantId}/oauth2/v2.0/logout?post_logout_redirect_uri=${encodeURIComponent(redirectUri())}`)}
+const nf=n=>{const e=new Error(`${n} が見つかりません`);e.name="NotFoundError";return e};
+async function gx(method,path,body,headers={},raw=false){for(let k=0;k<3;k++){const t=await msToken();if(!t){FOLDER.dir=null;throw new Error("サインインの有効期限が切れました。もう一度サインインしてください")}
+ const url=path.startsWith("http")?path:HOST.graphBase+path;
+ const r=await fetch(url,{method,headers:{Authorization:"Bearer "+t,...(body&&!(body instanceof Blob)&&typeof body!=="string"?{"Content-Type":"application/json"}:{}),...headers},body:body&&!(body instanceof Blob)&&typeof body!=="string"?JSON.stringify(body):body});
+ if(r.status===401&&k===0){const tk=TOK.get();if(tk){tk.exp=0;TOK.set(tk)}continue}
+ if(r.status===429||r.status===503){await new Promise(res=>setTimeout(res,(Number(r.headers.get("Retry-After"))||2)*1000));continue}
+ if(r.status===404)return null;if(!r.ok){let m="";try{m=(await r.json()).error?.message||""}catch(e){}throw new Error(`OneDrive ${r.status} ${m}`)}
+ return raw?r:(r.status===204?{}:r.json())}}
+class GFile{constructor(dir,name,item){this.kind="file";this.name=name;this.dir=dir;this.item=item}
+ async getFile(){const it=this.item||await gx("GET",`/drives/${this.dir.drive}/items/${this.dir.id}:/${encodeURIComponent(this.name)}`);if(!it||it.folder)throw nf(this.name);
+  const full=it["@microsoft.graph.downloadUrl"]?it:await gx("GET",`/drives/${this.dir.drive}/items/${it.id}`);const r=await fetch(full["@microsoft.graph.downloadUrl"]);if(!r.ok)throw new Error("ダウンロード "+r.status);
+  const blob=await r.blob();return {name:this.name,size:blob.size,type:blob.type,lastModified:Date.parse(it.lastModifiedDateTime||"")||Date.now(),text:()=>blob.text(),arrayBuffer:()=>blob.arrayBuffer()}}
+ async createWritable(){const parts=[],self=this;return {write(d){parts.push(d)},async close(){const blob=new Blob(parts);await self.dir.upload(self.name,blob)}}}}
+class GDir{constructor(drive,id,name){this.kind="directory";this.drive=drive;this.id=id;this.name=name;this.isGraph=true}
+ async child(name){return gx("GET",`/drives/${this.drive}/items/${this.id}:/${encodeURIComponent(name)}`)}
+ async getDirectoryHandle(name,opt={}){let it=await this.child(name);
+  if(!it){if(!opt.create)throw nf(name);try{it=await gx("POST",`/drives/${this.drive}/items/${this.id}/children`,{name,folder:{},"@microsoft.graph.conflictBehavior":"fail"})}catch(e){it=await this.child(name);if(!it)throw e}}
+  if(!it.folder){const e=new Error(name+" はフォルダではありません");e.name="TypeMismatchError";throw e}return new GDir(this.drive,it.id,name)}
+ async getFileHandle(name,opt={}){const it=await this.child(name);if(!it&&!opt.create)throw nf(name);if(it&&it.folder){const e=new Error(name+" はファイルではありません");e.name="TypeMismatchError";throw e}return new GFile(this,name,it)}
+ async removeEntry(name){const it=await this.child(name);if(!it)throw nf(name);await gx("DELETE",`/drives/${this.drive}/items/${it.id}`)}
+ async *entries(){let url=`/drives/${this.drive}/items/${this.id}/children?$top=200`;while(url){const j=await gx("GET",url);if(!j)return;for(const it of j.value||[])yield [it.name,it.folder?new GDir(this.drive,it.id,it.name):new GFile(this,it.name,it)];url=j["@odata.nextLink"]||null}}
+ async upload(name,blob){const p=`/drives/${this.drive}/items/${this.id}:/${encodeURIComponent(name)}:`;
+  if(blob.size<=4*1024*1024)return gx("PUT",p+"/content",blob,{"Content-Type":"application/octet-stream"});
+  const s=await gx("POST",p+"/createUploadSession",{item:{"@microsoft.graph.conflictBehavior":"replace"}});const CH=320*1024*10;
+  for(let i=0;i<blob.size;i+=CH){const part=blob.slice(i,Math.min(i+CH,blob.size));const r=await fetch(s.uploadUrl,{method:"PUT",headers:{"Content-Range":`bytes ${i}-${i+part.size-1}/${blob.size}`},body:part});if(!r.ok&&r.status!==202)throw new Error("アップロード "+r.status)}}}
+async function graphConnect(){const enc="u!"+btoa(unescape(encodeURIComponent(HOST.folderShareUrl))).replace(/=+$/,"").replace(/\//g,"_").replace(/\+/g,"-");
+ const it=await gx("GET",`/shares/${enc}/driveItem`);if(!it||!it.folder)throw new Error("設定された共有フォルダを開けません。フォルダの共有に自分が含まれているか、管理者に確認してください。");
+ const me=await gx("GET","/me?$select=displayName,userPrincipalName,mail").catch(()=>null);if(me)sessionStorage.setItem("ahcn-me",JSON.stringify(me));
+ await connectFolder(new GDir(it.parentReference.driveId,it.id,it.name))}
+const msMe=()=>{try{return JSON.parse(sessionStorage.getItem("ahcn-me")||"null")}catch(e){return null}};
+async function hostedStart(){if(!hostReady())return;try{await msHandleRedirect();if(await msToken())await graphConnect()}catch(e){alert("保存先（OneDrive）に接続できませんでした："+e.message)}}
+function renderHostedSignin(){const me=msMe();
+ $("#main").innerHTML=`<h2 style="margin-top:0">Adachi健やかNet：サインイン</h2>${NOTICE}
+ ${hostReady()?`<p>データの保存先は、管理者が設定した OneDrive の専用フォルダに固定されています。所属機関から案内された <b>Microsoft アカウント</b>でサインインしてください（外部の方は、招待されたアカウントで）。</p>
+ <div class="toolbar"><button class="btn" type="button" id="msIn">Microsoft アカウントでサインイン</button></div>
+ <p class="small">サインインできても「共有フォルダを開けません」と出る場合は、そのアカウントがフォルダの共有相手に入っていません。管理者に連絡してください。</p>`
+ :`<div class="notice"><b>保存先が設定されていません。</b>リポジトリの <code>config.js</code> に、テナントID・アプリのID・共有フォルダのリンクを設定してください（README「保存先の固定」参照）。</div>`}`;
+ const b=$("#msIn");if(b)b.onclick=msSignIn}
 
 /* ============ 起動 ============ */
 openDB().then(async()=>{await loadPrefs();if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();await restoreFolder();await loadSession();render()}).catch(e=>{$("#main").innerHTML=`<p class="notice">このブラウザではデータを保存できません（${esc(e.message)}）。プライベートブラウズを解除してください。</p>`});

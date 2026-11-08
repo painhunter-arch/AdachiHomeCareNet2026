@@ -14,3 +14,6 @@ members/
 conferences/
 logs/
 audit/
+
+# アイコンはリポジトリに含める
+!icon-*.png
